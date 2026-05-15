@@ -510,9 +510,30 @@ class AddEditActivity : AppCompatActivity() {
         )
 
         lifecycleScope.launch {
-            if (editId != -1L) db.updateTaxpayerAsync(taxpayer)
-            else db.insertTaxpayerAsync(taxpayer)
-            Toast.makeText(this@AddEditActivity, "تم حفظ البيانات بنجاح", Toast.LENGTH_SHORT).show()
+            val newId = if (editId != -1L) {
+                db.updateTaxpayerAsync(taxpayer)
+                editId
+            } else {
+                db.insertTaxpayerAsync(taxpayer)
+            }
+
+            // إذا كانت هناك جولة نشطة + للمكلف موقع، سجّل زيارة محل
+            val tourState = com.taxgps.app.tracking.TourTrackingManager.state.value
+            if (tourState.isActive && capturedLat != null && capturedLon != null && newId > 0) {
+                val visitLocation = android.location.Location("").apply {
+                    latitude = capturedLat!!
+                    longitude = capturedLon!!
+                    accuracy = capturedAcc ?: 0f
+                }
+                com.taxgps.app.tracking.TourTrackingManager.recordShopVisit(
+                    this@AddEditActivity, newId, visitLocation
+                )
+                Toast.makeText(this@AddEditActivity,
+                    "تم حفظ المكلف وربطه بالجولة الحالية",
+                    Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this@AddEditActivity, "تم حفظ البيانات بنجاح", Toast.LENGTH_SHORT).show()
+            }
             finish()
         }
     }

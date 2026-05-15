@@ -138,11 +138,11 @@
             android:exported="false"
             android:label="@string/tours_title" />
 
-        <!-- شاشة تفاصيل الجولة -->
+        <!-- شاشة عرض الجولة على الخريطة (مع heatmap) -->
         <activity
-            android:name=".ui.TourDetailActivity"
+            android:name=".ui.TourMapActivity"
             android:exported="false"
-            android:label="@string/tour_detail_title" />
+            android:label="@string/tour_view_map" />
 
         <!-- FileProvider للصور -->
         <provider

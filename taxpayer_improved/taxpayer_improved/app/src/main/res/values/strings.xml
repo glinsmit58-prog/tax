@@ -146,6 +146,38 @@
     <string name="security_migration_progress">جاري ترقية حماية البيانات...</string>
     <string name="security_migration_success">تم تشفير البيانات بنجاح</string>
 
+    <!-- تتبّع الجولات -->
+    <string name="tours_title">الجولات الميدانية</string>
+    <string name="tour_detail_title">تفاصيل الجولة</string>
+    <string name="tour_start">ابدأ جولة</string>
+    <string name="tour_end">إنهاء الجولة</string>
+    <string name="tour_active">جولة نشطة</string>
+    <string name="tour_no_tours">لا توجد جولات سابقة\nاضغط \"ابدأ جولة\" لتبدأ التسجيل</string>
+    <string name="tour_started">تم بدء الجولة</string>
+    <string name="tour_ended">تم إنهاء الجولة</string>
+    <string name="tour_confirm_start_title">بدء جولة جديدة</string>
+    <string name="tour_confirm_start_msg">سيبدأ التطبيق بتسجيل مسارك تلقائياً.\nيمكنك إنهاء الجولة في أي وقت من الإشعار أو الزر.\n\nهل تريد المتابعة؟</string>
+    <string name="tour_confirm_end_title">إنهاء الجولة الحالية</string>
+    <string name="tour_confirm_end_msg">هل أنت متأكد من إنهاء الجولة الحالية؟</string>
+    <string name="tour_confirm_delete_msg">هل أنت متأكد من حذف هذه الجولة؟ سيُحذف المسار المسجّل بالكامل.</string>
+    <string name="tour_permission_required">صلاحية الموقع في الخلفية مطلوبة</string>
+    <string name="tour_permission_explain">للسماح بتسجيل الجولة حتى لو أغلقت التطبيق، يجب منح صلاحية \"السماح طوال الوقت\".</string>
+    <string name="tour_notification_permission">يحتاج التطبيق صلاحية الإشعارات لعرض تقدّم الجولة</string>
+    <string name="tour_export_kml">تصدير KML</string>
+    <string name="tour_view_map">عرض المسار على الخريطة</string>
+    <string name="tour_points">نقطة</string>
+    <string name="tour_distance">المسافة</string>
+    <string name="tour_duration">المدة</string>
+    <string name="tour_taxpayers_visited">المحلات المسجّلة</string>
+    <string name="tour_started_at">بدأت في</string>
+    <string name="tour_ended_at">انتهت في</string>
+    <string name="show_all_tours_on_map">عرض جميع الجولات</string>
+    <string name="heatmap_legend">دليل ألوان الحرارة</string>
+    <string name="heatmap_low">منطقة زِرتها قليلاً (1 مرة)</string>
+    <string name="heatmap_medium">2-3 مرات</string>
+    <string name="heatmap_high">4-6 مرات</string>
+    <string name="heatmap_very_high">7+ مرات (منطقة مكثّفة)</string>
+
     <!-- عامة -->
     <string name="required_field">هذا الحقل مطلوب</string>
     <string name="saved_successfully">تم حفظ البيانات بنجاح</string>
