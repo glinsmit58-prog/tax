@@ -3,36 +3,92 @@ package com.taxgps.app.data
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
+import com.taxgps.app.security.EncryptionKeyManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import net.zetetic.database.sqlcipher.SQLiteDatabase
+import net.zetetic.database.sqlcipher.SQLiteOpenHelper
+import java.io.File
 
 /**
- * مساعد قاعدة البيانات SQLite — Singleton
+ * مساعد قاعدة البيانات SQLite — مع تشفير SQLCipher (AES-256)
  *
- * مبني على بنية قاعدة بيانات Access: سجلات_الدخل_المقطوع
- * يدعم جميع الأعمدة + جدول المعالم المرجعية للخريطة
+ * v8 - SQLCipher Encryption:
+ * ─────────────────────────────────────────────────────────────────────
+ * - قاعدة البيانات مشفّرة بالكامل بـ AES-256
+ * - المفتاح يُولَّد تلقائياً ويُحفظ في Android Keystore
+ * - ترقية تلقائية للقاعدة القديمة غير المشفّرة (encrypt-in-place)
+ * - شفّاف للكود: نفس API الـ SQLite العادي
+ *
+ * ملاحظة مهمة:
+ * ─────────────────────────────────────────────────────────────────────
+ * نستخدم net.zetetic.database.sqlcipher (مكتبة SQLCipher الجديدة)
+ * بدلاً من android.database.sqlite. الـ API متطابق تقريباً.
  */
-class DatabaseHelper private constructor(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, DB_NAME, null, DB_VERSION) {
+class DatabaseHelper private constructor(
+    context: Context,
+    private val passphrase: ByteArray
+) : SQLiteOpenHelper(
+    context.applicationContext,
+    DB_NAME,
+    passphrase,
+    null,
+    DB_VERSION,
+    0,
+    null,
+    null,
+    false
+) {
 
     companion object {
         private const val TAG = "DatabaseHelper"
         private const val DB_NAME = "taxpayers_v4.db"
-        private const val DB_VERSION = 7   // رُفع لدعم رقم العقار والصور
+        private const val DB_VERSION = 8   // رُفع لدعم التشفير
+
+        // اسم الملف القديم غير المشفّر (للترقية)
+        private const val LEGACY_DB_NAME = "taxpayers_v4.db"
 
         const val TABLE = "taxpayers"
         const val TABLE_LANDMARKS = "landmarks"
 
         @Volatile
         private var INSTANCE: DatabaseHelper? = null
+        @Volatile
+        private var sqlcipherLoaded = false
+
+        /**
+         * تحميل مكتبة SQLCipher الأصلية (يُستدعى مرة واحدة فقط)
+         * يجب استدعاؤه قبل أول استخدام لـ DatabaseHelper
+         */
+        fun initSqlCipher() {
+            if (!sqlcipherLoaded) {
+                synchronized(this) {
+                    if (!sqlcipherLoaded) {
+                        System.loadLibrary("sqlcipher")
+                        sqlcipherLoaded = true
+                        Log.i(TAG, "SQLCipher native library loaded")
+                    }
+                }
+            }
+        }
 
         fun getInstance(context: Context): DatabaseHelper {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: DatabaseHelper(context.applicationContext).also { INSTANCE = it }
+                INSTANCE ?: createInstance(context.applicationContext).also { INSTANCE = it }
             }
+        }
+
+        private fun createInstance(context: Context): DatabaseHelper {
+            initSqlCipher()
+
+            // الحصول على مفتاح التشفير (يُولَّد عند أول مرة)
+            val key = EncryptionKeyManager.getOrCreateDbKey(context)
+
+            // ترقية القاعدة القديمة غير المشفّرة (إن وُجدت)
+            DatabaseMigrationHelper.encryptLegacyDatabaseIfNeeded(context, DB_NAME, key)
+
+            return DatabaseHelper(context, key)
         }
 
         // أعمدة جدول المكلفين

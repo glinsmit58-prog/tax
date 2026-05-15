@@ -68,3 +68,23 @@
 # ── Paging 3 ──────────────────────────────────────────────────────────────────
 -keep class androidx.paging.** { *; }
 -dontwarn androidx.paging.**
+
+
+# ── SQLCipher (تشفير قاعدة البيانات) ──────────────────────────────────────────
+-keep class net.zetetic.database.** { *; }
+-keep class net.zetetic.database.sqlcipher.** { *; }
+-dontwarn net.zetetic.database.**
+
+# ── AndroidX Security (EncryptedSharedPreferences) ────────────────────────────
+-keep class androidx.security.crypto.** { *; }
+-dontwarn androidx.security.crypto.**
+
+# ── Bouncy Castle / Keystore (تابع لـ EncryptedSharedPreferences) ─────────────
+-dontwarn com.google.crypto.tink.**
+-keep class com.google.crypto.tink.** { *; }
+
+
+# ── iText Asian Fonts (للعربية والصينية) ──────────────────────────────────────
+-keep class com.itextpdf.io.font.** { *; }
+-keepclassmembers class com.itextpdf.** { public *; }
+-dontwarn com.itextpdf.**

@@ -58,6 +58,22 @@ class MainActivity : AppCompatActivity() {
         uri?.let { performExportBackup(it) }
     }
 
+    // ── ملتقطات التصدير ──────────────────────────────────────────────────────
+
+    private var pendingExportFilter: ExportFilter = ExportFilter.ALL
+
+    private val exportPdfLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri: Uri? ->
+        uri?.let { performExport(it, ExportFormat.PDF) }
+    }
+
+    private val exportCsvLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri: Uri? ->
+        uri?.let { performExport(it, ExportFormat.CSV) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -89,6 +105,8 @@ class MainActivity : AppCompatActivity() {
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         menu.add(0, MENU_BACKUP_IMPORT, 5, getString(R.string.import_backup))
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+        menu.add(0, MENU_EXPORT_REPORT, 6, getString(R.string.export_title))
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         return true
     }
 
@@ -115,6 +133,7 @@ class MainActivity : AppCompatActivity() {
                 backupPickerLauncher.launch(arrayOf("*/*"))
                 true
             }
+            MENU_EXPORT_REPORT -> { showExportDialog(); true }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -389,5 +408,159 @@ class MainActivity : AppCompatActivity() {
         private const val MENU_LANDMARKS = 103
         private const val MENU_BACKUP_EXPORT = 104
         private const val MENU_BACKUP_IMPORT = 105
+        private const val MENU_EXPORT_REPORT = 106
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // ─── تصدير التقارير (PDF / CSV) ──────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+
+    private enum class ExportFilter { ALL, OLD_ONLY, NEW_ONLY, WITH_LOCATION }
+    private enum class ExportFormat { PDF, CSV }
+
+    private fun showExportDialog() {
+        val scopes = arrayOf(
+            getString(R.string.export_all),
+            getString(R.string.export_old_only),
+            getString(R.string.export_new_only),
+            getString(R.string.export_with_location)
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.export_choose_scope)
+            .setItems(scopes) { _, which ->
+                pendingExportFilter = when (which) {
+                    1 -> ExportFilter.OLD_ONLY
+                    2 -> ExportFilter.NEW_ONLY
+                    3 -> ExportFilter.WITH_LOCATION
+                    else -> ExportFilter.ALL
+                }
+                showFormatDialog()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun showFormatDialog() {
+        val formats = arrayOf(
+            getString(R.string.export_pdf),
+            getString(R.string.export_csv)
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.export_choose_format)
+            .setItems(formats) { _, which ->
+                val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmm",
+                    java.util.Locale.getDefault()).format(java.util.Date())
+                when (which) {
+                    0 -> exportPdfLauncher.launch("taxpayers_${timestamp}.pdf")
+                    1 -> exportCsvLauncher.launch("taxpayers_${timestamp}.csv")
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun performExport(uri: Uri, format: ExportFormat) {
+        val progressDialog = AlertDialog.Builder(this)
+            .setTitle(R.string.export_in_progress)
+            .setMessage("0 / 0")
+            .setCancelable(false)
+            .create()
+        progressDialog.show()
+
+        lifecycleScope.launch {
+            try {
+                // جلب البيانات حسب الفلتر
+                val db = DatabaseHelper.getInstance(this@MainActivity)
+                val all = db.getAllTaxpayersAsync(limit = 100000)
+                val taxpayers = when (pendingExportFilter) {
+                    ExportFilter.OLD_ONLY -> all.filter { it.isOld() }
+                    ExportFilter.NEW_ONLY -> all.filter { !it.isOld() }
+                    ExportFilter.WITH_LOCATION -> all.filter { it.hasLocation() }
+                    ExportFilter.ALL -> all
+                }
+
+                if (taxpayers.isEmpty()) {
+                    progressDialog.dismiss()
+                    Toast.makeText(this@MainActivity,
+                        "لا توجد بيانات للتصدير", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+
+                val subtitle = when (pendingExportFilter) {
+                    ExportFilter.OLD_ONLY -> "المكلفون القدامى فقط"
+                    ExportFilter.NEW_ONLY -> "المكلفون الجدد فقط"
+                    ExportFilter.WITH_LOCATION -> "المكلفون مع تحديد موقع GPS"
+                    ExportFilter.ALL -> "كل المكلفين"
+                }
+
+                val config = com.taxgps.app.utils.ExportHelper.ReportConfig(
+                    title = "تقرير المكلفين",
+                    subtitle = subtitle,
+                    taxpayers = taxpayers,
+                    includeStats = true,
+                    includeLocation = true
+                )
+
+                val exportHelper = com.taxgps.app.utils.ExportHelper(this@MainActivity)
+
+                val listener = object : com.taxgps.app.utils.ExportHelper.ExportListener {
+                    override fun onProgress(current: Int, total: Int, message: String) {
+                        progressDialog.setMessage(message)
+                    }
+                    override fun onSuccess(message: String, recordCount: Int) {
+                        progressDialog.dismiss()
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle(R.string.export_success)
+                            .setMessage("$message\n\nعدد السجلات: $recordCount")
+                            .setPositiveButton("فتح") { _, _ ->
+                                openExportedFile(uri, format)
+                            }
+                            .setNegativeButton("حسناً", null)
+                            .show()
+                    }
+                    override fun onError(error: String) {
+                        progressDialog.dismiss()
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle(R.string.export_failed)
+                            .setMessage(error)
+                            .setPositiveButton("حسناً", null)
+                            .show()
+                    }
+                }
+
+                when (format) {
+                    ExportFormat.PDF -> exportHelper.exportToPdf(config, uri, listener)
+                    ExportFormat.CSV -> exportHelper.exportToCsv(config, uri, listener)
+                }
+
+            } catch (e: Exception) {
+                progressDialog.dismiss()
+                Toast.makeText(this@MainActivity,
+                    "خطأ: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    /**
+     * فتح الملف المُصدَّر بالتطبيق المناسب (PDF reader / Excel)
+     */
+    private fun openExportedFile(uri: Uri, format: ExportFormat) {
+        try {
+            val mimeType = when (format) {
+                ExportFormat.PDF -> "application/pdf"
+                ExportFormat.CSV -> "text/csv"
+            }
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(intent, "فتح الملف"))
+        } catch (e: Exception) {
+            Toast.makeText(this,
+                "لا يوجد تطبيق لفتح هذا الملف. الملف محفوظ في الموقع المحدد.",
+                Toast.LENGTH_LONG).show()
+        }
     }
 }
