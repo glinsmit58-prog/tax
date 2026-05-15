@@ -44,13 +44,16 @@ class DatabaseHelper private constructor(
     companion object {
         private const val TAG = "DatabaseHelper"
         private const val DB_NAME = "taxpayers_v4.db"
-        private const val DB_VERSION = 8   // رُفع لدعم التشفير
+        private const val DB_VERSION = 9   // v9: جداول الجولات والمسارات
 
         // اسم الملف القديم غير المشفّر (للترقية)
         private const val LEGACY_DB_NAME = "taxpayers_v4.db"
 
         const val TABLE = "taxpayers"
         const val TABLE_LANDMARKS = "landmarks"
+        const val TABLE_TOURS = "tours"
+        const val TABLE_TRACK_POINTS = "track_points"
+        const val TABLE_STREET_SEGMENTS = "street_segments"
 
         @Volatile
         private var INSTANCE: DatabaseHelper? = null
@@ -134,6 +137,38 @@ class DatabaseHelper private constructor(
         const val COL_LM_IS_MAIN      = "is_main_reference"
         const val COL_LM_CREATED_AT   = "created_at"
 
+        // أعمدة جدول الجولات
+        const val COL_TOUR_ID          = "_id"
+        const val COL_TOUR_NAME        = "name"
+        const val COL_TOUR_STARTED     = "started_at"
+        const val COL_TOUR_ENDED       = "ended_at"
+        const val COL_TOUR_POINTS      = "point_count"
+        const val COL_TOUR_TAXPAYERS   = "taxpayer_count"
+        const val COL_TOUR_DISTANCE    = "distance_meters"
+        const val COL_TOUR_NOTES       = "notes"
+        const val COL_TOUR_CREATED     = "created_at"
+
+        // أعمدة نقاط المسار
+        const val COL_TP_ID            = "_id"
+        const val COL_TP_TOUR          = "tour_id"
+        const val COL_TP_LAT           = "latitude"
+        const val COL_TP_LON           = "longitude"
+        const val COL_TP_ACC           = "accuracy"
+        const val COL_TP_TIME          = "timestamp"
+        const val COL_TP_TYPE          = "type"
+        const val COL_TP_TAXPAYER      = "taxpayer_id"
+        const val COL_TP_SEGMENT       = "street_segment_id"
+        const val COL_TP_ACCURATE      = "is_accurate"
+
+        // أعمدة الـ street segments (للـ heatmap)
+        const val COL_SEG_ID           = "_id"
+        const val COL_SEG_LAT          = "center_lat"
+        const val COL_SEG_LON          = "center_lon"
+        const val COL_SEG_VISITS       = "visit_count"
+        const val COL_SEG_FIRST        = "first_visit_at"
+        const val COL_SEG_LAST         = "last_visit_at"
+        const val COL_SEG_AVG_ACC      = "average_accuracy"
+
         private val ALL_COLUMNS = arrayOf(
             COL_ID, COL_RECORD_NUMBER, COL_NAME, COL_MOTHER_NAME,
             COL_TAX_NUMBER, COL_ID_NUMBER, COL_PHONE,
@@ -149,6 +184,23 @@ class DatabaseHelper private constructor(
             COL_LM_ID, COL_LM_NAME, COL_LM_TYPE, COL_LM_DESCRIPTION,
             COL_LM_AREA, COL_LM_LATITUDE, COL_LM_LONGITUDE,
             COL_LM_ACCURACY, COL_LM_IS_MAIN, COL_LM_CREATED_AT
+        )
+
+        private val ALL_TOUR_COLUMNS = arrayOf(
+            COL_TOUR_ID, COL_TOUR_NAME, COL_TOUR_STARTED, COL_TOUR_ENDED,
+            COL_TOUR_POINTS, COL_TOUR_TAXPAYERS, COL_TOUR_DISTANCE,
+            COL_TOUR_NOTES, COL_TOUR_CREATED
+        )
+
+        private val ALL_TRACK_POINT_COLUMNS = arrayOf(
+            COL_TP_ID, COL_TP_TOUR, COL_TP_LAT, COL_TP_LON, COL_TP_ACC,
+            COL_TP_TIME, COL_TP_TYPE, COL_TP_TAXPAYER, COL_TP_SEGMENT,
+            COL_TP_ACCURATE
+        )
+
+        private val ALL_SEGMENT_COLUMNS = arrayOf(
+            COL_SEG_ID, COL_SEG_LAT, COL_SEG_LON, COL_SEG_VISITS,
+            COL_SEG_FIRST, COL_SEG_LAST, COL_SEG_AVG_ACC
         )
     }
 
@@ -201,6 +253,9 @@ class DatabaseHelper private constructor(
         // جدول المعالم المرجعية
         createLandmarksTable(db)
 
+        // جداول الجولات
+        createTourTables(db)
+
         Log.i(TAG, "Database v$DB_VERSION created")
     }
 
@@ -225,6 +280,63 @@ class DatabaseHelper private constructor(
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_lm_area ON $TABLE_LANDMARKS($COL_LM_AREA)")
     }
 
+    /**
+     * إنشاء جداول الجولات + نقاط المسار + Street Segments (للـ heatmap)
+     */
+    private fun createTourTables(db: SQLiteDatabase) {
+        // جدول الجولات
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS $TABLE_TOURS (
+                $COL_TOUR_ID         INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COL_TOUR_NAME       TEXT,
+                $COL_TOUR_STARTED    INTEGER NOT NULL,
+                $COL_TOUR_ENDED      INTEGER,
+                $COL_TOUR_POINTS     INTEGER DEFAULT 0,
+                $COL_TOUR_TAXPAYERS  INTEGER DEFAULT 0,
+                $COL_TOUR_DISTANCE   REAL DEFAULT 0,
+                $COL_TOUR_NOTES      TEXT,
+                $COL_TOUR_CREATED    INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_tour_started ON $TABLE_TOURS($COL_TOUR_STARTED)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_tour_ended ON $TABLE_TOURS($COL_TOUR_ENDED)")
+
+        // جدول نقاط المسار
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS $TABLE_TRACK_POINTS (
+                $COL_TP_ID        INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COL_TP_TOUR      INTEGER NOT NULL,
+                $COL_TP_LAT       REAL NOT NULL,
+                $COL_TP_LON       REAL NOT NULL,
+                $COL_TP_ACC       REAL,
+                $COL_TP_TIME      INTEGER NOT NULL,
+                $COL_TP_TYPE      TEXT NOT NULL DEFAULT 'walking',
+                $COL_TP_TAXPAYER  INTEGER,
+                $COL_TP_SEGMENT   INTEGER,
+                $COL_TP_ACCURATE  INTEGER DEFAULT 1
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_tp_tour ON $TABLE_TRACK_POINTS($COL_TP_TOUR)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_tp_time ON $TABLE_TRACK_POINTS($COL_TP_TIME)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_tp_segment ON $TABLE_TRACK_POINTS($COL_TP_SEGMENT)")
+
+        // جدول الـ street segments (لتجميع المسارات المتكررة)
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS $TABLE_STREET_SEGMENTS (
+                $COL_SEG_ID       INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COL_SEG_LAT      REAL NOT NULL,
+                $COL_SEG_LON      REAL NOT NULL,
+                $COL_SEG_VISITS   INTEGER DEFAULT 1,
+                $COL_SEG_FIRST    INTEGER NOT NULL,
+                $COL_SEG_LAST     INTEGER NOT NULL,
+                $COL_SEG_AVG_ACC  REAL DEFAULT 0
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_seg_lat ON $TABLE_STREET_SEGMENTS($COL_SEG_LAT)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_seg_lon ON $TABLE_STREET_SEGMENTS($COL_SEG_LON)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_seg_visits ON $TABLE_STREET_SEGMENTS($COL_SEG_VISITS)")
+    }
+
     // ─── Migrations آمنة ومتسلسلة ────────────────────────────────────────────
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -236,6 +348,7 @@ class DatabaseHelper private constructor(
         if (oldVersion < 5) migrateTo5(db)
         if (oldVersion < 6) migrateTo6(db)
         if (oldVersion < 7) migrateTo7(db)
+        if (oldVersion < 9) migrateTo9(db)
 
         Log.i(TAG, "Upgrade complete")
     }
@@ -279,6 +392,16 @@ class DatabaseHelper private constructor(
         safeAlter(db, "ALTER TABLE $TABLE ADD COLUMN $COL_PROPERTY_NUMBER TEXT")
         safeAlter(db, "ALTER TABLE $TABLE ADD COLUMN $COL_PHOTOS TEXT")
         safeAlter(db, "CREATE INDEX IF NOT EXISTS idx_property ON $TABLE($COL_PROPERTY_NUMBER)")
+    }
+
+    /**
+     * v7/v8 → v9: إضافة جداول الجولات
+     *
+     * نتجاوز v8 لأنه كان مخصصاً للتشفير فقط (لا تغييرات في schema).
+     * هنا نضيف الجداول الجديدة لميزة التتبّع.
+     */
+    private fun migrateTo9(db: SQLiteDatabase) {
+        createTourTables(db)
     }
 
     private fun safeAlter(db: SQLiteDatabase, sql: String) {
@@ -518,6 +641,163 @@ class DatabaseHelper private constructor(
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ─── عمليات CRUD للجولات والمسارات ───────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    suspend fun insertTourAsync(tour: Tour): Long = withContext(Dispatchers.IO) {
+        writableDatabase.insert(TABLE_TOURS, null, tour.toContentValues())
+    }
+
+    suspend fun updateTourAsync(tour: Tour): Int = withContext(Dispatchers.IO) {
+        writableDatabase.update(
+            TABLE_TOURS, tour.toContentValues(),
+            "$COL_TOUR_ID=?", arrayOf(tour.id.toString())
+        )
+    }
+
+    suspend fun endTourAsync(tourId: Long, endTime: Long, distance: Float, points: Int, taxpayers: Int): Int =
+        withContext(Dispatchers.IO) {
+            val cv = android.content.ContentValues().apply {
+                put(COL_TOUR_ENDED, endTime)
+                put(COL_TOUR_DISTANCE, distance)
+                put(COL_TOUR_POINTS, points)
+                put(COL_TOUR_TAXPAYERS, taxpayers)
+            }
+            writableDatabase.update(
+                TABLE_TOURS, cv, "$COL_TOUR_ID=?", arrayOf(tourId.toString())
+            )
+        }
+
+    suspend fun deleteTourAsync(tourId: Long): Int = withContext(Dispatchers.IO) {
+        // حذف نقاط المسار المرتبطة أولاً
+        writableDatabase.delete(TABLE_TRACK_POINTS, "$COL_TP_TOUR=?", arrayOf(tourId.toString()))
+        writableDatabase.delete(TABLE_TOURS, "$COL_TOUR_ID=?", arrayOf(tourId.toString()))
+    }
+
+    suspend fun getActiveTourAsync(): Tour? = withContext(Dispatchers.IO) {
+        readableDatabase.query(
+            TABLE_TOURS, ALL_TOUR_COLUMNS,
+            "$COL_TOUR_ENDED IS NULL", null,
+            null, null, "$COL_TOUR_STARTED DESC", "1"
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.toTour() else null
+        }
+    }
+
+    suspend fun getAllToursAsync(): List<Tour> = withContext(Dispatchers.IO) {
+        readableDatabase.query(
+            TABLE_TOURS, ALL_TOUR_COLUMNS,
+            null, null, null, null,
+            "$COL_TOUR_STARTED DESC"
+        ).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.toTour()) }
+        }
+    }
+
+    suspend fun getTourByIdAsync(tourId: Long): Tour? = withContext(Dispatchers.IO) {
+        readableDatabase.query(
+            TABLE_TOURS, ALL_TOUR_COLUMNS,
+            "$COL_TOUR_ID=?", arrayOf(tourId.toString()),
+            null, null, null
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.toTour() else null
+        }
+    }
+
+    // ── نقاط المسار ──────────────────────────────────────────────────────────
+
+    suspend fun insertTrackPointAsync(point: TrackPoint): Long = withContext(Dispatchers.IO) {
+        writableDatabase.insert(TABLE_TRACK_POINTS, null, point.toContentValues())
+    }
+
+    suspend fun insertTrackPointsBatchAsync(points: List<TrackPoint>): Int = withContext(Dispatchers.IO) {
+        var count = 0
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            for (p in points) {
+                db.insert(TABLE_TRACK_POINTS, null, p.toContentValues())
+                count++
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        count
+    }
+
+    suspend fun getTrackPointsForTourAsync(tourId: Long): List<TrackPoint> = withContext(Dispatchers.IO) {
+        readableDatabase.query(
+            TABLE_TRACK_POINTS, ALL_TRACK_POINT_COLUMNS,
+            "$COL_TP_TOUR=?", arrayOf(tourId.toString()),
+            null, null, "$COL_TP_TIME ASC"
+        ).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.toTrackPoint()) }
+        }
+    }
+
+    suspend fun getAllTrackPointsAsync(limit: Int = 50000): List<TrackPoint> = withContext(Dispatchers.IO) {
+        readableDatabase.query(
+            TABLE_TRACK_POINTS, ALL_TRACK_POINT_COLUMNS,
+            null, null, null, null, "$COL_TP_TIME ASC", limit.toString()
+        ).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.toTrackPoint()) }
+        }
+    }
+
+    // ── Street Segments (للـ heatmap) ────────────────────────────────────────
+
+    suspend fun findNearbySegmentAsync(
+        lat: Double, lon: Double, radiusDegrees: Double = 0.0001  // ~10 متر
+    ): StreetSegment? = withContext(Dispatchers.IO) {
+        // البحث في صندوق محيط (bounding box) بدلاً من حساب المسافة الفعلية - أسرع
+        val minLat = lat - radiusDegrees
+        val maxLat = lat + radiusDegrees
+        val minLon = lon - radiusDegrees
+        val maxLon = lon + radiusDegrees
+
+        readableDatabase.query(
+            TABLE_STREET_SEGMENTS, ALL_SEGMENT_COLUMNS,
+            "$COL_SEG_LAT BETWEEN ? AND ? AND $COL_SEG_LON BETWEEN ? AND ?",
+            arrayOf(minLat.toString(), maxLat.toString(), minLon.toString(), maxLon.toString()),
+            null, null, null, "1"
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.toSegment() else null
+        }
+    }
+
+    suspend fun insertSegmentAsync(segment: StreetSegment): Long = withContext(Dispatchers.IO) {
+        writableDatabase.insert(TABLE_STREET_SEGMENTS, null, segment.toContentValues())
+    }
+
+    suspend fun incrementSegmentVisitAsync(segmentId: Long, currentTime: Long): Int =
+        withContext(Dispatchers.IO) {
+            writableDatabase.execSQL(
+                "UPDATE $TABLE_STREET_SEGMENTS SET " +
+                "$COL_SEG_VISITS = $COL_SEG_VISITS + 1, " +
+                "$COL_SEG_LAST = ? " +
+                "WHERE $COL_SEG_ID = ?",
+                arrayOf(currentTime, segmentId)
+            )
+            1
+        }
+
+    suspend fun getAllSegmentsAsync(): List<StreetSegment> = withContext(Dispatchers.IO) {
+        readableDatabase.query(
+            TABLE_STREET_SEGMENTS, ALL_SEGMENT_COLUMNS,
+            null, null, null, null, "$COL_SEG_VISITS DESC"
+        ).use { cursor ->
+            buildList { while (cursor.moveToNext()) add(cursor.toSegment()) }
+        }
+    }
+
+    suspend fun getSegmentCountAsync(): Int = withContext(Dispatchers.IO) {
+        readableDatabase.rawQuery("SELECT COUNT(*) FROM $TABLE_STREET_SEGMENTS", null).use {
+            if (it.moveToFirst()) it.getInt(0) else 0
+        }
+    }
+
     // ─── تحويل ContentValues / Cursor (مكلفين) ───────────────────────────────
 
     private fun Taxpayer.toContentValues(): ContentValues = ContentValues().apply {
@@ -657,6 +937,147 @@ class DatabaseHelper private constructor(
             accuracy        = flt(COL_LM_ACCURACY),
             isMainReference = int(COL_LM_IS_MAIN) == 1,
             createdAt       = lng(COL_LM_CREATED_AT)
+        )
+    }
+
+    // ─── تحويل ContentValues / Cursor (الجولات والمسارات) ────────────────────
+
+    private fun Tour.toContentValues(): ContentValues = ContentValues().apply {
+        if (id > 0) put(COL_TOUR_ID, id)
+        put(COL_TOUR_NAME, name)
+        put(COL_TOUR_STARTED, startedAt)
+        endedAt?.let { put(COL_TOUR_ENDED, it) } ?: putNull(COL_TOUR_ENDED)
+        put(COL_TOUR_POINTS, pointCount)
+        put(COL_TOUR_TAXPAYERS, taxpayerCount)
+        put(COL_TOUR_DISTANCE, distanceMeters)
+        put(COL_TOUR_NOTES, notes)
+        put(COL_TOUR_CREATED, createdAt)
+    }
+
+    private fun Cursor.toTour(): Tour {
+        fun str(col: String): String {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getString(idx) ?: "" else ""
+        }
+        fun lng(col: String): Long {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getLong(idx) else 0L
+        }
+        fun int(col: String): Int {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getInt(idx) else 0
+        }
+        fun flt(col: String): Float {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getFloat(idx) else 0f
+        }
+        fun lngNull(col: String): Long? {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getLong(idx) else null
+        }
+
+        return Tour(
+            id             = lng(COL_TOUR_ID),
+            name           = str(COL_TOUR_NAME),
+            startedAt      = lng(COL_TOUR_STARTED),
+            endedAt        = lngNull(COL_TOUR_ENDED),
+            pointCount     = int(COL_TOUR_POINTS),
+            taxpayerCount  = int(COL_TOUR_TAXPAYERS),
+            distanceMeters = flt(COL_TOUR_DISTANCE),
+            notes          = str(COL_TOUR_NOTES),
+            createdAt      = lng(COL_TOUR_CREATED)
+        )
+    }
+
+    private fun TrackPoint.toContentValues(): ContentValues = ContentValues().apply {
+        if (id > 0) put(COL_TP_ID, id)
+        put(COL_TP_TOUR, tourId)
+        put(COL_TP_LAT, latitude)
+        put(COL_TP_LON, longitude)
+        put(COL_TP_ACC, accuracy)
+        put(COL_TP_TIME, timestamp)
+        put(COL_TP_TYPE, type)
+        taxpayerId?.let { put(COL_TP_TAXPAYER, it) } ?: putNull(COL_TP_TAXPAYER)
+        streetSegmentId?.let { put(COL_TP_SEGMENT, it) } ?: putNull(COL_TP_SEGMENT)
+        put(COL_TP_ACCURATE, if (isAccurate) 1 else 0)
+    }
+
+    private fun Cursor.toTrackPoint(): TrackPoint {
+        fun str(col: String): String {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getString(idx) ?: "" else ""
+        }
+        fun lng(col: String): Long {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getLong(idx) else 0L
+        }
+        fun int(col: String): Int {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getInt(idx) else 0
+        }
+        fun dbl(col: String): Double {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getDouble(idx) else 0.0
+        }
+        fun flt(col: String): Float {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getFloat(idx) else 0f
+        }
+        fun lngNull(col: String): Long? {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getLong(idx) else null
+        }
+
+        return TrackPoint(
+            id              = lng(COL_TP_ID),
+            tourId          = lng(COL_TP_TOUR),
+            latitude        = dbl(COL_TP_LAT),
+            longitude       = dbl(COL_TP_LON),
+            accuracy        = flt(COL_TP_ACC),
+            timestamp       = lng(COL_TP_TIME),
+            type            = str(COL_TP_TYPE).ifBlank { TrackPoint.TYPE_WALKING },
+            taxpayerId      = lngNull(COL_TP_TAXPAYER),
+            streetSegmentId = lngNull(COL_TP_SEGMENT),
+            isAccurate      = int(COL_TP_ACCURATE) == 1
+        )
+    }
+
+    private fun StreetSegment.toContentValues(): ContentValues = ContentValues().apply {
+        if (id > 0) put(COL_SEG_ID, id)
+        put(COL_SEG_LAT, centerLat)
+        put(COL_SEG_LON, centerLon)
+        put(COL_SEG_VISITS, visitCount)
+        put(COL_SEG_FIRST, firstVisitAt)
+        put(COL_SEG_LAST, lastVisitAt)
+        put(COL_SEG_AVG_ACC, averageAccuracy)
+    }
+
+    private fun Cursor.toSegment(): StreetSegment {
+        fun lng(col: String): Long {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getLong(idx) else 0L
+        }
+        fun int(col: String): Int {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getInt(idx) else 0
+        }
+        fun dbl(col: String): Double {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getDouble(idx) else 0.0
+        }
+        fun flt(col: String): Float {
+            val idx = getColumnIndex(col)
+            return if (idx >= 0 && !isNull(idx)) getFloat(idx) else 0f
+        }
+
+        return StreetSegment(
+            id              = lng(COL_SEG_ID),
+            centerLat       = dbl(COL_SEG_LAT),
+            centerLon       = dbl(COL_SEG_LON),
+            visitCount      = int(COL_SEG_VISITS),
+            firstVisitAt    = lng(COL_SEG_FIRST),
+            lastVisitAt     = lng(COL_SEG_LAST),
+            averageAccuracy = flt(COL_SEG_AVG_ACC)
         )
     }
 }
