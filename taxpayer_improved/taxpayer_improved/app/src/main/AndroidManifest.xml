@@ -34,6 +34,19 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- صلاحية الموقع في الخلفية (Android 10+) - لتتبّع الجولة عند إغلاق التطبيق -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- Foreground Service (لتشغيل خدمة التتبّع) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <!-- إشعارات (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- منع الجهاز من النوم أثناء التتبّع (اختياري) -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <!-- صلاحية الكاميرا (للصور) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -107,6 +120,29 @@
             android:name=".ui.LandmarkListActivity"
             android:exported="false"
             android:label="@string/manage_landmarks" />
+
+        <!-- ════════ خدمة تتبّع الجولات ════════ -->
+        <service
+            android:name=".tracking.TourTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <!-- استقبال أزرار الإشعار (إيقاف الجولة من الإشعار) -->
+        <receiver
+            android:name=".tracking.TourActionReceiver"
+            android:exported="false" />
+
+        <!-- شاشة قائمة الجولات -->
+        <activity
+            android:name=".ui.ToursActivity"
+            android:exported="false"
+            android:label="@string/tours_title" />
+
+        <!-- شاشة تفاصيل الجولة -->
+        <activity
+            android:name=".ui.TourDetailActivity"
+            android:exported="false"
+            android:label="@string/tour_detail_title" />
 
         <!-- FileProvider للصور -->
         <provider
