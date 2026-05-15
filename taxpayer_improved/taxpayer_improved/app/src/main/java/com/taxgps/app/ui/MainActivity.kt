@@ -1,7 +1,10 @@
 package com.taxgps.app.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -12,6 +15,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.paging.LoadState
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -19,6 +23,8 @@ import com.taxgps.app.R
 import com.taxgps.app.data.DatabaseHelper
 import com.taxgps.app.data.Taxpayer
 import com.taxgps.app.databinding.ActivityMainBinding
+import com.taxgps.app.tracking.TourTrackingManager
+import com.taxgps.app.tracking.TourTrackingService
 import com.taxgps.app.utils.AccessDbImportHelper
 import com.taxgps.app.utils.BackupHelper
 import com.taxgps.app.viewmodel.TaxpayerViewModel
@@ -74,6 +80,33 @@ class MainActivity : AppCompatActivity() {
         uri?.let { performExport(it, ExportFormat.CSV) }
     }
 
+    // ── ملتقطات صلاحيات الجولة ───────────────────────────────────────────────
+
+    private val tourPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
+        val locationGranted = perms[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val notifGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            perms[Manifest.permission.POST_NOTIFICATIONS] == true
+        } else true
+
+        if (locationGranted && notifGranted) {
+            // تم منح الأساسيات - اطلب صلاحية الخلفية إن لزم
+            requestBackgroundLocationIfNeeded()
+        } else {
+            Toast.makeText(this,
+                "صلاحيات الموقع والإشعارات مطلوبة لتسجيل الجولة",
+                Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val backgroundLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        // حتى لو رفض، نبدأ الجولة - ستعمل ضمن التطبيق فقط
+        startTourActually()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -84,6 +117,7 @@ class MainActivity : AppCompatActivity() {
         setupSearchView()
         setupFilterButtons()
         observeViewModel()
+        observeTourState()
 
         binding.fab.setOnClickListener {
             startActivity(Intent(this, AddEditActivity::class.java))
@@ -107,7 +141,22 @@ class MainActivity : AppCompatActivity() {
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         menu.add(0, MENU_EXPORT_REPORT, 6, getString(R.string.export_title))
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+        menu.add(0, MENU_TOUR_TOGGLE, 7, getString(R.string.tour_start))
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+        menu.add(0, MENU_TOURS_LIST, 8, getString(R.string.tours_title))
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         return true
+    }
+
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        // تحديث عنوان زر الجولة بناءً على الحالة
+        val toggle = menu.findItem(MENU_TOUR_TOGGLE)
+        toggle?.title = if (TourTrackingManager.state.value.isActive) {
+            getString(R.string.tour_end)
+        } else {
+            getString(R.string.tour_start)
+        }
+        return super.onPrepareOptionsMenu(menu)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -134,6 +183,11 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             MENU_EXPORT_REPORT -> { showExportDialog(); true }
+            MENU_TOUR_TOGGLE -> { handleTourToggle(); true }
+            MENU_TOURS_LIST -> {
+                startActivity(Intent(this, ToursActivity::class.java))
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -409,6 +463,8 @@ class MainActivity : AppCompatActivity() {
         private const val MENU_BACKUP_EXPORT = 104
         private const val MENU_BACKUP_IMPORT = 105
         private const val MENU_EXPORT_REPORT = 106
+        private const val MENU_TOUR_TOGGLE = 107
+        private const val MENU_TOURS_LIST = 108
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -562,5 +618,111 @@ class MainActivity : AppCompatActivity() {
                 "لا يوجد تطبيق لفتح هذا الملف. الملف محفوظ في الموقع المحدد.",
                 Toast.LENGTH_LONG).show()
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // ─── تتبّع الجولات ────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * مراقبة حالة الجولة لتحديث الـ UI (شريط علوي + عنوان زر القائمة)
+     */
+    private fun observeTourState() {
+        lifecycleScope.launch {
+            TourTrackingManager.state.collect { state ->
+                // تحديث القائمة (لإظهار/إخفاء "إنهاء الجولة")
+                invalidateOptionsMenu()
+            }
+        }
+    }
+
+    /**
+     * زر تبديل الجولة (بدء / إنهاء)
+     */
+    private fun handleTourToggle() {
+        if (TourTrackingManager.state.value.isActive) {
+            confirmEndTour()
+        } else {
+            confirmStartTour()
+        }
+    }
+
+    private fun confirmStartTour() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.tour_confirm_start_title)
+            .setMessage(R.string.tour_confirm_start_msg)
+            .setPositiveButton(R.string.tour_start) { _, _ ->
+                requestTourPermissions()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmEndTour() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.tour_confirm_end_title)
+            .setMessage(R.string.tour_confirm_end_msg)
+            .setPositiveButton(R.string.tour_end) { _, _ ->
+                TourTrackingService.stopTour(this)
+                Toast.makeText(this, R.string.tour_ended, Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    /**
+     * طلب الصلاحيات اللازمة للجولة (الموقع + الإشعارات)
+     */
+    private fun requestTourPermissions() {
+        val permsToRequest = mutableListOf<String>()
+
+        // الموقع - إلزامي
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED) {
+            permsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+
+        // الإشعارات (Android 13+) - إلزامية للـ Foreground Service
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED) {
+            permsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        if (permsToRequest.isEmpty()) {
+            // كل الصلاحيات الأساسية موجودة
+            requestBackgroundLocationIfNeeded()
+        } else {
+            tourPermissionsLauncher.launch(permsToRequest.toTypedArray())
+        }
+    }
+
+    /**
+     * طلب صلاحية الموقع في الخلفية (Android 10+)
+     * هذه الصلاحية يجب طلبها بعد قبول صلاحية الموقع العادية
+     */
+    private fun requestBackgroundLocationIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+            != PackageManager.PERMISSION_GRANTED) {
+            // اشرح للمستخدم لماذا نحتاجها
+            AlertDialog.Builder(this)
+                .setTitle(R.string.tour_permission_required)
+                .setMessage(R.string.tour_permission_explain)
+                .setPositiveButton("متابعة") { _, _ ->
+                    backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                }
+                .setNegativeButton("استمر بدونها") { _, _ ->
+                    startTourActually()
+                }
+                .show()
+        } else {
+            startTourActually()
+        }
+    }
+
+    private fun startTourActually() {
+        TourTrackingService.startTour(this)
+        Toast.makeText(this, R.string.tour_started, Toast.LENGTH_SHORT).show()
     }
 }
