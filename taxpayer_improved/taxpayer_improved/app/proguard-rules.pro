@@ -82,3 +82,9 @@
 # ── Bouncy Castle / Keystore (تابع لـ EncryptedSharedPreferences) ─────────────
 -dontwarn com.google.crypto.tink.**
 -keep class com.google.crypto.tink.** { *; }
+
+
+# ── iText Asian Fonts (للعربية والصينية) ──────────────────────────────────────
+-keep class com.itextpdf.io.font.** { *; }
+-keepclassmembers class com.itextpdf.** { public *; }
+-dontwarn com.itextpdf.**

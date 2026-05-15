@@ -125,6 +125,27 @@
     <string name="import_success">تم الاستيراد بنجاح</string>
     <string name="import_error">خطأ أثناء الاستيراد</string>
 
+    <!-- التصدير -->
+    <string name="export">تصدير</string>
+    <string name="export_pdf">تصدير PDF</string>
+    <string name="export_csv">تصدير Excel/CSV</string>
+    <string name="export_title">تصدير التقارير</string>
+    <string name="export_choose_format">اختر صيغة التصدير</string>
+    <string name="export_choose_scope">ما الذي تريد تصديره؟</string>
+    <string name="export_all">جميع المكلفين</string>
+    <string name="export_old_only">القدامى فقط</string>
+    <string name="export_new_only">الجدد فقط</string>
+    <string name="export_with_location">من لديهم موقع GPS فقط</string>
+    <string name="export_success">تم التصدير بنجاح: %d سجل</string>
+    <string name="export_failed">فشل التصدير</string>
+    <string name="export_in_progress">جاري التصدير...</string>
+
+    <!-- الأمان -->
+    <string name="security_title">حماية البيانات</string>
+    <string name="security_encrypted">قاعدة البيانات مشفّرة بـ AES-256</string>
+    <string name="security_migration_progress">جاري ترقية حماية البيانات...</string>
+    <string name="security_migration_success">تم تشفير البيانات بنجاح</string>
+
     <!-- عامة -->
     <string name="required_field">هذا الحقل مطلوب</string>
     <string name="saved_successfully">تم حفظ البيانات بنجاح</string>
