@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">مكلفي الضرائب GPS</string>
+
+    <!-- الشاشة الرئيسية -->
+    <string name="search_hint">بحث بالاسم، الرقم الضريبي، الهاتف، المنطقة...</string>
+    <string name="filter_all">الكل</string>
+    <string name="filter_old">قدامى</string>
+    <string name="filter_new">جدد</string>
+    <string name="no_taxpayers">لا يوجد مكلفون</string>
+    <string name="add_taxpayer">إضافة مكلف</string>
+    <string name="edit_taxpayer">تعديل المكلف</string>
+
+    <!-- حقول المكلف -->
+    <string name="taxpayer_name">اسم المكلف</string>
+    <string name="tax_number">الرقم الضريبي</string>
+    <string name="id_number">رقم الهوية</string>
+    <string name="phone">الهاتف</string>
+    <string name="address">العنوان</string>
+    <string name="activity_type">نوع النشاط / المهنة</string>
+    <string name="notes">ملاحظات</string>
+    <string name="type_label">النوع</string>
+    <string name="type_old">قديم</string>
+    <string name="type_new">جديد</string>
+    <string name="status_label">الحالة</string>
+    <string name="property_number">رقم العقار</string>
+    <string name="neighbor_right">الجار الأيمن</string>
+    <string name="neighbor_left">الجار الأيسر</string>
+    <string name="shop_description">وصف المحل</string>
+
+    <!-- الصور -->
+    <string name="photos_section">صور المحل</string>
+    <string name="no_photos">لا توجد صور</string>
+    <string name="take_photo">التقاط صورة</string>
+    <string name="pick_photo">اختيار من المعرض</string>
+    <string name="photo_saved">تم حفظ الصورة</string>
+    <string name="photo_error">خطأ في حفظ الصورة</string>
+    <string name="photos_count">%d صورة</string>
+
+    <!-- النسخ الاحتياطي -->
+    <string name="backup_title">النسخ الاحتياطي</string>
+    <string name="export_backup">تصدير نسخة احتياطية</string>
+    <string name="import_backup">استعادة نسخة احتياطية</string>
+    <string name="backup_success">تم إنشاء النسخة الاحتياطية</string>
+    <string name="restore_success">تم استعادة النسخة الاحتياطية</string>
+    <string name="backup_replace_warning">هل تريد استبدال جميع البيانات الحالية أم إضافة بيانات النسخة؟</string>
+
+    <!-- التفاصيل -->
+    <string name="taxpayer_details">تفاصيل المكلف</string>
+    <string name="not_specified">غير محدد</string>
+    <string name="no_notes">لا توجد ملاحظات</string>
+
+    <!-- الموقع GPS -->
+    <string name="capture_location">التقاط الموقع GPS</string>
+    <string name="recapture_location">إعادة التقاط الموقع</string>
+    <string name="stop_and_save">إيقاف وحفظ القراءة الحالية</string>
+    <string name="location_captured">تم تحديد الموقع</string>
+    <string name="no_location">لا يوجد موقع محدد</string>
+    <string name="location_permission_denied">تم رفض صلاحية الموقع. يُرجى تفعيلها من الإعدادات.</string>
+    <string name="gps_disabled_title">خدمة الموقع معطّلة</string>
+    <string name="gps_disabled_message">يرجى تفعيل خدمة تحديد الموقع (GPS) للحصول على إحداثيات دقيقة.</string>
+    <string name="enable_gps">تفعيل</string>
+
+    <!-- الخريطة -->
+    <string name="map_view">عرض الخريطة</string>
+    <string name="map_view_title">خريطة المكلفين والمعالم</string>
+    <string name="open_in_google_maps">فتح في خرائط Google</string>
+    <string name="no_location_for_map">لا يوجد موقع محدد لهذا المكلف</string>
+    <string name="no_taxpayers_with_location">لا يوجد مكلفون لديهم موقع محدد</string>
+    <string name="show_all_on_map">عرض الكل على الخريطة</string>
+
+    <!-- أدوات الخريطة -->
+    <string name="hide_connections">إخفاء الروابط</string>
+    <string name="show_connections">إظهار الروابط</string>
+    <string name="hide_landmarks">إخفاء المعالم</string>
+    <string name="show_landmarks">إظهار المعالم</string>
+    <string name="toggle_distances">المسافات</string>
+    <string name="max_connection_distance">أقصى مسافة:</string>
+    <string name="legend_title">دليل الألوان</string>
+
+    <!-- المعالم المرجعية -->
+    <string name="add_landmark">إضافة معلم مرجعي</string>
+    <string name="edit_landmark">تعديل معلم مرجعي</string>
+    <string name="manage_landmarks">إدارة المعالم</string>
+    <string name="no_landmarks">لا توجد معالم مرجعية\nأضف معالم لتسهيل تحديد المواقع</string>
+    <string name="landmark_name">اسم المعلم (مثل: مسجد النور)</string>
+    <string name="landmark_type">نوع المعلم</string>
+    <string name="landmark_area">المنطقة / الحي</string>
+    <string name="landmark_area_custom">أدخل اسم المنطقة</string>
+    <string name="landmark_description">وصف المعلم (اختياري)</string>
+    <string name="landmark_is_main">معلم رئيسي (يظهر دائماً على الخريطة)</string>
+    <string name="landmark_info_section">بيانات المعلم</string>
+    <string name="landmark_location_section">موقع المعلم GPS</string>
+    <string name="save_landmark">حفظ المعلم</string>
+    <string name="landmark_saved">تم حفظ المعلم المرجعي</string>
+    <string name="landmark_deleted">تم حذف المعلم</string>
+    <string name="landmark_location_required">يجب تحديد موقع المعلم</string>
+
+    <!-- أنواع المعالم -->
+    <string name="landmark_type_mosque">مسجد</string>
+    <string name="landmark_type_school">مدرسة</string>
+    <string name="landmark_type_intersection">تقاطع</string>
+    <string name="landmark_type_government">دائرة حكومية</string>
+    <string name="landmark_type_market">سوق</string>
+    <string name="landmark_type_other">أخرى</string>
+
+    <!-- المسافات -->
+    <string name="distance_label">المسافة</string>
+    <string name="nearest_landmark">أقرب معلم</string>
+    <string name="nearest_shops">أقرب المحلات</string>
+    <string name="neighbors">الجيران</string>
+    <string name="no_nearby_landmarks">لا توجد معالم مرجعية قريبة</string>
+    <string name="no_nearby_shops">لا توجد محلات مجاورة</string>
+
+    <!-- أزرار -->
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+    <string name="delete">حذف</string>
+    <string name="edit">تعديل</string>
+    <string name="confirm_delete_title">تأكيد الحذف</string>
+    <string name="confirm_delete_message">هل أنت متأكد من حذف المكلف \"%s\"؟\nلا يمكن التراجع عن هذا الإجراء.</string>
+
+    <!-- الاستيراد -->
+    <string name="import_csv">استيراد CSV</string>
+    <string name="import_success">تم الاستيراد بنجاح</string>
+    <string name="import_error">خطأ أثناء الاستيراد</string>
+
+    <!-- عامة -->
+    <string name="required_field">هذا الحقل مطلوب</string>
+    <string name="saved_successfully">تم حفظ البيانات بنجاح</string>
+    <string name="deleted_successfully">تم حذف المكلف بنجاح</string>
+    <string name="error_occurred">حدث خطأ. حاول مرة أخرى.</string>
+</resources>

@@ -90,10 +90,18 @@ class AddEditActivity : AppCompatActivity() {
         ActivityResultContracts.TakePicture()
     ) { success ->
         if (success && currentPhotoPath.isNotBlank()) {
-            photosList.add(currentPhotoPath)
-            updatePhotoCount()
-            Toast.makeText(this, getString(R.string.photo_saved), Toast.LENGTH_SHORT).show()
-            Log.i(TAG, "Photo captured successfully: $currentPhotoPath")
+            // ضغط الصورة في خلفية ثم إضافتها للقائمة
+            lifecycleScope.launch {
+                val compressedFile = com.taxgps.app.utils.PhotoCompressor.compressFile(
+                    File(currentPhotoPath)
+                )
+                photosList.add(compressedFile.absolutePath)
+                updatePhotoCount()
+                val sizeKb = compressedFile.length() / 1024
+                Toast.makeText(this@AddEditActivity,
+                    "تم حفظ الصورة (${sizeKb}KB)", Toast.LENGTH_SHORT).show()
+                Log.i(TAG, "Photo captured and compressed: $currentPhotoPath (${sizeKb}KB)")
+            }
         } else {
             // التقاط الصورة فشل أو ألغاه المستخدم
             Log.w(TAG, "Photo capture failed or cancelled. success=$success, path=$currentPhotoPath")
@@ -299,15 +307,17 @@ class AddEditActivity : AppCompatActivity() {
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val destFile = File(photosDir, "PICK_${timeStamp}.jpg")
 
-            contentResolver.openInputStream(uri)?.use { input ->
-                destFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
+            // ضغط الصورة أثناء النسخ
+            lifecycleScope.launch {
+                val compressed = com.taxgps.app.utils.PhotoCompressor.compressFromUri(
+                    this@AddEditActivity, uri, destFile
+                )
+                photosList.add(compressed.absolutePath)
+                updatePhotoCount()
+                val sizeKb = compressed.length() / 1024
+                Toast.makeText(this@AddEditActivity,
+                    "تم حفظ الصورة (${sizeKb}KB)", Toast.LENGTH_SHORT).show()
             }
-
-            photosList.add(destFile.absolutePath)
-            updatePhotoCount()
-            Toast.makeText(this, getString(R.string.photo_saved), Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save picked photo", e)
             Toast.makeText(this, getString(R.string.photo_error), Toast.LENGTH_SHORT).show()
