@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--
+      مسار الصور الداخلية - يجب أن يتطابق مع File(filesDir, "taxpayer_photos")
+      المسار النسبي الصحيح هو "taxpayer_photos" بدون شَرطة مائلة في النهاية
+    -->
+    <files-path name="taxpayer_photos" path="taxpayer_photos" />
+
+    <!-- مجلد الكاش للصور المؤقتة -->
+    <cache-path name="cache" path="." />
+
+    <!-- مجلد خارجي للمشاركة (احتياطي) -->
+    <external-files-path name="external_photos" path="Pictures" />
+</paths>
